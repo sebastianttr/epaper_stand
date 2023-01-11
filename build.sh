@@ -1,0 +1,1 @@
+/usr/local/bin/platformio -c clion run
