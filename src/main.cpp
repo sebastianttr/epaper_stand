@@ -5,7 +5,7 @@
 #include "handlers/ConnectivityHandler/ConnectivityHandler.h"
 #include "ArduinoJson.h"
 #include "soc/rtc_wdt.h"
-#include "http/HttpClient/HttpClient.h"
+#include "http/HttpClient/AsyncHTTPClient.h"
 #include "handlers/UIHandler/UIHandler.h"
 #include "types/typedefs.h"
 
@@ -14,6 +14,7 @@ const uint8_t port = 80;
 
 Epd epd;
 ConnectivityHandler connectivityHandler = ConnectivityHandler();
+UIHandler uiHandler = UIHandler();
 
 weather_data* weatherArray;
 static uint8_t currentScreen = 0;
@@ -37,12 +38,13 @@ static lv_color_t buf[ screenWidth * 20 ];
 
 int counter = 0;
 
-void my_disp_flush( lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p )
+void renderFirstScreenTask();
+
+void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p )
 {
     UWORD h,w;
 
     for(h = area->y1; h <= area->y2; h++) {
-        counter++;
         for(w = area->x1; w < area->x2; w++) {
             if(w % 4 == 0){
                 uint8_t px = 0;
@@ -64,7 +66,8 @@ void my_disp_flush( lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *colo
         }
     }
 
-    lv_disp_flush_ready( disp );
+    lv_disp_t * disp1 = _lv_refr_get_disp_refreshing();
+    lv_disp_flush_ready(disp1->driver);
 }
 
 void initEpaper(){
@@ -86,24 +89,21 @@ void initLVGL(){
     disp_drv.flush_cb = my_disp_flush;
     disp_drv.draw_buf = &draw_buf;
     lv_disp_drv_register( &disp_drv);
+
 }
 
 void renderBufOnDisplay(){
-    Serial.println("Rendering on display.");
 
     epd.SendCommand(0x04);
     epd.ReadBusyH();
 
     epd.SendCommand(0x10);
 
-    Serial.println("LV_Task_Handler");
 
     lv_task_handler();
 
-    Serial.println("LV Task Handler Done!");
 
     epd.TurnOnDisplay();
-    epd.Init();
     Serial.println("New Buffer Rendered.");
 }
 
@@ -184,72 +184,62 @@ void getWeather(){
                 }
             }
 
-            UIHandler::drawFirstScreen(
-                weatherArray,
-                connectivityHandler.ntp.hours(),
-                connectivityHandler.ntp.minutes(),
-                connectivityHandler.ntp.day(),
-                connectivityHandler.ntp.month(),
-                connectivityHandler.ntp.year()
-                    );
-            renderBufOnDisplay();
+            renderFirstScreenTask();
         });
 
     // important ... if this is not here, sudden crashes might appear.
     rtc_wdt_feed();
 }
 
-
-void updateScreen(void* taskParams){
-    for(;;){
-
-    }
-}
-
-uint16_t startMillis = 0;
-uint16_t currentMillis = 0;
-
-void setup() {
-    // put your setup code here, to run once:
-    Serial.begin(115200);
-
-    /*if(!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)){
-        Serial.println("SPIFFS Mount Failed");
-        return;
-    }*/
-    initEpaper();
+void refresh_lvgl() {
+    lv_obj_clean(lv_scr_act());
+    lv_deinit();
+    lv_mem_buf_free_all();
     initLVGL();
-
-    connectivityHandler.begin();
-    getWeather();
-//    xTaskCreate(
-//            updateScreen,
-//            "updateScreen",
-//            10000,
-//            nullptr,
-//            tskIDLE_PRIORITY,
-//            nullptr );
-    startMillis = millis();
-    currentMillis = startMillis;
 }
 
-void loop() {
-    connectivityHandler.handle();
-    delay(10);
+void renderFirstScreenTask(){
+    xTaskCreate(
+        [](void* params) -> void {
+            //for(;;){
+                //vTaskDelay(2000/portTICK_PERIOD_MS);
 
-    currentMillis = millis();
-    if(currentMillis - startMillis >= 20000){
-        epd.Reset();
-        epd.Init();
-        UIHandler::drawFirstScreen(
+//                refresh_lvgl();
+//                uiHandler.drawCalenderScreen();
+//                renderBufOnDisplay();
+
+                refresh_lvgl();
+                uiHandler.drawFirstScreen(
                 weatherArray,
                 connectivityHandler.ntp.hours(),
                 connectivityHandler.ntp.minutes(),
                 connectivityHandler.ntp.day(),
                 connectivityHandler.ntp.month(),
                 connectivityHandler.ntp.year()
-        );
-        renderBufOnDisplay();
-        startMillis = millis();
-    }
+                );
+                renderBufOnDisplay();
+
+            //}
+            //startPeriodicTask();
+            vTaskDelete(nullptr);
+        },
+        "update_screen",
+        8192,
+        nullptr,
+        0,
+        nullptr);
+}
+void setup() {
+    Serial.begin(115200);
+
+    initEpaper();
+    initLVGL();
+
+    connectivityHandler.begin();
+    getWeather();
+}
+
+void loop() {
+    connectivityHandler.handle();
+    delay(10);
 }

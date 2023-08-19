@@ -175,11 +175,9 @@ void Epd::TurnOnDisplay(void)
     SendData(0x01);
     ReadBusyH();
 
-    Reset();
-
-//    SendCommand(0x02); // POWER_OFF
-//    SendData(0X00);
-//    ReadBusyH();
+    SendCommand(0x02); // POWER_OFF
+    SendData(0X00);
+    ReadBusyH();
 }
 
 /******************************************************************************

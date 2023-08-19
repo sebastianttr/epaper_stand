@@ -29,4 +29,10 @@ typedef struct{
     datetime_t end;
 }schedule_t;
 
+typedef struct{
+    const char* title;
+    const char* description;
+    const char* date;
+}news_item_t;
+
 #endif EPAPER_FIRMWARE_TYPEDEFS_H

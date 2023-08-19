@@ -2,8 +2,8 @@
 // Created by Sebastian on 02.12.22.
 //
 
-#ifndef EPAPER_FIRMWARE_HTTPCLIENT_H
-#define EPAPER_FIRMWARE_HTTPCLIENT_H
+#ifndef EPAPER_FIRMWARE_ASYNCHTTPCLIENT_H
+#define EPAPER_FIRMWARE_ASYNCHTTPCLIENT_H
 
 #include "WString.h"
 
@@ -22,4 +22,4 @@ typedef struct{
 
 void fetchAsync(HTTP_METHOD method, const String& url,callback_t callback);
 
-#endif //EPAPER_FIRMWARE_HTTPCLIENT_H
+#endif //EPAPER_FIRMWARE_ASYNCHTTPCLIENT_H
